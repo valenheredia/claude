@@ -1,0 +1,31 @@
+name: Chequeo de asistencia
+
+on:
+  schedule:
+    - cron: '0 12 * * 1-5'   # 9:00 AM Buenos Aires (UTC-3)
+    - cron: '0 16 * * 1-5'   # 13:00 Buenos Aires
+    - cron: '0 21 * * 1-5'   # 18:00 Buenos Aires
+  workflow_dispatch:           # Permite correrlo manualmente
+
+jobs:
+  chequeo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install requests openpyxl google-api-python-client google-auth
+
+      - name: Correr chequeo
+        env:
+          CONNECTEAM_API_KEY:            ${{ secrets.CONNECTEAM_API_KEY }}
+          GOOGLE_SHEET_ID:               ${{ secrets.GOOGLE_SHEET_ID }}
+          GMAIL_SENDER:                  ${{ secrets.GMAIL_SENDER }}
+          GMAIL_RECIPIENT:               ${{ secrets.GMAIL_RECIPIENT }}
+          GMAIL_APP_PASSWORD:            ${{ secrets.GMAIL_APP_PASSWORD }}
+          GOOGLE_SERVICE_ACCOUNT_JSON:   ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+        run: python chequeo.py
