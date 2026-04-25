@@ -46,7 +46,7 @@ Mi unidad / ACTIVE CLEAN / Operaciones / Registro checklist /
 import requests
 from datetime import date
 
-api_key = "0ee55bea-c948-4c5f-8321-8eefa1a576a5"
+api_key = os.environ.get("CONNECTEAM_API_KEY", "")
 hoy = date.today().isoformat()
 headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
