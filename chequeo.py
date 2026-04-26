@@ -67,7 +67,7 @@ wb = openpyxl.load_workbook(buf)
 ws = wb.active
 
 # --- Connecteam ---
-ct_headers = {"Authorization": f"Bearer {CONNECTEAM_API_KEY}", "Content-Type": "application/json"}
+ct_headers = {"X-API-KEY": CONNECTEAM_API_KEY, "Content-Type": "application/json"}
 ct_params  = {"startDate": hoy.isoformat(), "endDate": hoy.isoformat()}
 r_turnos = requests.get("https://api.connecteam.com/shifts/v1/shifts", headers=ct_headers, params=ct_params)
 print(f"Turnos status: {r_turnos.status_code} | Body: {r_turnos.text[:300]}")
