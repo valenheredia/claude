@@ -69,6 +69,9 @@ ws = wb.active
 # --- Connecteam ---
 ct_headers = {"X-API-KEY": CONNECTEAM_API_KEY, "Content-Type": "application/json"}
 ct_params  = {"startDate": hoy.isoformat(), "endDate": hoy.isoformat()}
+r_me = requests.get("https://api.connecteam.com/me", headers=ct_headers)
+print(f"ME status: {r_me.status_code} | Body: {r_me.text[:300]}")
+
 r_turnos = requests.get("https://api.connecteam.com/shifts/v1/shifts", headers=ct_headers, params=ct_params)
 print(f"Turnos status: {r_turnos.status_code} | Body: {r_turnos.text[:300]}")
 turnos_raw = r_turnos.json()
