@@ -148,8 +148,7 @@ for row in ws.iter_rows(min_row=5):
                   if job_nombre.get(t.get("jobId",""),"").strip().lower() == servicio_lower), None)
 
     print(f"Fila servicio='{servicio_str}' | turno={'SI' if turno else 'NO'} | col_e={repr(row[4].value)}")
-    else:
-        # Debug: mostrar comparaciones para los primeros servicios
+    if not turno:
         for t in turnos:
             jname = job_nombre.get(t.get("jobId",""),"").strip().lower()
             if jname and servicio_lower[:5] in jname:
