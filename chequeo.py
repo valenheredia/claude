@@ -35,7 +35,8 @@ hoy            = date.today()
 nombre_archivo = hoy.strftime("%d/%m/%Y") + ".xlsx"
 nombre_carpeta = f"{MESES_ES[hoy.month]} {hoy.year}"
 
-DRIVE_OPTS = dict(supportsAllDrives=True, includeItemsFromAllDrives=True)
+DRIVE_OPTS      = dict(supportsAllDrives=True, includeItemsFromAllDrives=True)
+DRIVE_OPTS_WRITE = dict(supportsAllDrives=True)
 
 def buscar_id(nombre, tipo, parent):
     q = f"name='{nombre}' and mimeType='{tipo}' and '{parent}' in parents and trashed=false"
@@ -48,7 +49,7 @@ carpeta_mes_id = buscar_id(nombre_carpeta, "application/vnd.google-apps.folder",
 if not carpeta_mes_id:
     meta = {"name": nombre_carpeta, "mimeType": "application/vnd.google-apps.folder",
             "parents": [REGISTRO_ID]}
-    carpeta_mes_id = drive.files().create(body=meta, fields="id", **DRIVE_OPTS).execute()["id"]
+    carpeta_mes_id = drive.files().create(body=meta, fields="id", **DRIVE_OPTS_WRITE).execute()["id"]
     print(f"Carpeta creada: {nombre_carpeta}")
 
 # --- Buscar o crear archivo del día ---
@@ -71,7 +72,7 @@ if not archivo_id:
     media = MediaIoBaseUpload(buf_t, mimetype=MIME_XLSX)
     archivo_id = drive.files().create(
         body={"name": nombre_archivo, "parents": [carpeta_mes_id]},
-        media_body=media, fields="id", **DRIVE_OPTS
+        media_body=media, fields="id", **DRIVE_OPTS_WRITE
     ).execute()["id"]
     print(f"Archivo creado: {nombre_archivo}")
 
@@ -158,7 +159,7 @@ buf2 = io.BytesIO()
 wb.save(buf2)
 buf2.seek(0)
 media2 = MediaIoBaseUpload(buf2, mimetype=MIME_XLSX)
-drive.files().update(fileId=archivo_id, media_body=media2, **DRIVE_OPTS).execute()
+drive.files().update(fileId=archivo_id, media_body=media2, **DRIVE_OPTS_WRITE).execute()
 print("Planilla actualizada en Drive")
 
 # --- Mail ---
