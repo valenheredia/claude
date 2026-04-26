@@ -135,7 +135,8 @@ for row in ws.iter_rows(min_row=5):
     servicio = row[2].value  # Col C
     if not servicio:
         continue
-    if row[4].value:  # Col E ya completada
+    col_e_val = str(row[4].value).strip() if row[4].value is not None else ""
+    if col_e_val and col_e_val not in ["None", ""]:  # Col E ya completada
         continue
 
     servicio_str   = str(servicio).strip()
