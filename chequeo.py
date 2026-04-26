@@ -76,7 +76,7 @@ schedulers_data = r_schedulers.json().get("data", {})
 schedulers = schedulers_data.get("schedulers", []) if isinstance(schedulers_data, dict) else schedulers_data
 if not schedulers:
     raise ValueError("No se encontraron schedulers en Connecteam")
-scheduler_id = schedulers[0]["id"]
+scheduler_id = schedulers[0]["schedulerId"]
 print(f"Usando scheduler ID: {scheduler_id}")
 
 # Turnos del día (timestamps Unix)
