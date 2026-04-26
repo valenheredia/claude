@@ -67,14 +67,22 @@ ws = wb.active
 # --- Connecteam ---
 ct = {"X-API-KEY": CONNECTEAM_API_KEY, "Content-Type": "application/json"}
 
-# Jobs: jobId → title
-r_jobs = requests.get("https://api.connecteam.com/jobs/v1/jobs", headers=ct)
-jobs_raw = r_jobs.json().get("data", {})
-jobs_list = jobs_raw.get("jobs", []) if isinstance(jobs_raw, dict) else []
-job_nombre = {j["jobId"]: j["title"] for j in jobs_list if "jobId" in j and "title" in j}
+# Jobs: jobId → title (con paginación)
+job_nombre = {}
+offset = 0
+limit  = 50
+while True:
+    r_jobs = requests.get("https://api.connecteam.com/jobs/v1/jobs", headers=ct,
+                          params={"limit": limit, "offset": offset})
+    jobs_raw  = r_jobs.json().get("data", {})
+    jobs_list = jobs_raw.get("jobs", []) if isinstance(jobs_raw, dict) else []
+    for j in jobs_list:
+        if "jobId" in j and "title" in j:
+            job_nombre[j["jobId"]] = j["title"]
+    if len(jobs_list) < limit:
+        break
+    offset += limit
 print(f"Jobs cargados: {len(job_nombre)}")
-for jid, jname in job_nombre.items():
-    print(f"  {jid} → {jname}")
 
 # Schedulers
 scheduler_id = requests.get("https://api.connecteam.com/scheduler/v1/schedulers", headers=ct).json().get("data",{}).get("schedulers",[{}])[0].get("schedulerId")
