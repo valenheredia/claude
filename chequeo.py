@@ -146,9 +146,8 @@ for row in ws.iter_rows(min_row=5):
 
     turno = next((t for t in turnos
                   if job_nombre.get(t.get("jobId",""),"").strip().lower() == servicio_lower), None)
-    
-    if turno:
-        print(f"MATCH: '{servicio_str}' → jobId={turno.get('jobId')}")
+
+    print(f"Fila servicio='{servicio_str}' | turno={'SI' if turno else 'NO'} | col_e={repr(row[4].value)}")
     else:
         # Debug: mostrar comparaciones para los primeros servicios
         for t in turnos:
