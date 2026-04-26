@@ -144,6 +144,12 @@ for row in ws.iter_rows(min_row=5):
     turno = next((t for t in turnos
                   if job_nombre.get(t.get("jobId",""),"").strip().lower() == servicio_lower), None)
 
+    # Test explícito para los 4 servicios de hoy
+    if servicio_lower in ["correa","triunvirato 5375","core av. cabildo 2588","core jose maria moreno 357"]:
+        for t in turnos:
+            jn = job_nombre.get(t.get("jobId",""),"").strip().lower()
+            print(f"TEST: '{servicio_lower}' == '{jn}' → {servicio_lower == jn} | len_p={len(servicio_lower)} len_c={len(jn)}")
+
     print(f"Fila servicio='{servicio_str}' | turno={'SI' if turno else 'NO'} | col_e={repr(row[4].value)}")
     if not turno:
         for t in turnos:
