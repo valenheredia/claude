@@ -68,14 +68,34 @@ ws = wb.active
 
 # --- Connecteam ---
 ct_headers = {"X-API-KEY": CONNECTEAM_API_KEY, "Content-Type": "application/json"}
-ct_params  = {"startDate": hoy.isoformat(), "endDate": hoy.isoformat()}
-r_me = requests.get("https://api.connecteam.com/me", headers=ct_headers)
-print(f"ME status: {r_me.status_code} | Body: {r_me.text[:300]}")
 
-r_turnos = requests.get("https://api.connecteam.com/shifts/v1/shifts", headers=ct_headers, params=ct_params)
+# Obtener lista de schedulers
+r_schedulers = requests.get("https://api.connecteam.com/scheduler/v1/schedulers", headers=ct_headers)
+print(f"Schedulers status: {r_schedulers.status_code} | Body: {r_schedulers.text[:500]}")
+schedulers_data = r_schedulers.json().get("data", {})
+schedulers = schedulers_data.get("schedulers", []) if isinstance(schedulers_data, dict) else schedulers_data
+if not schedulers:
+    raise ValueError("No se encontraron schedulers en Connecteam")
+scheduler_id = schedulers[0]["id"]
+print(f"Usando scheduler ID: {scheduler_id}")
+
+# Turnos del día (timestamps Unix)
+hoy_ts_start = int(datetime.combine(hoy, datetime.min.time()).timestamp())
+hoy_ts_end   = int(datetime.combine(hoy, datetime.max.time()).timestamp())
+r_turnos = requests.get(
+    f"https://api.connecteam.com/scheduler/v1/schedulers/{scheduler_id}/shifts",
+    headers=ct_headers,
+    params={"startTime": hoy_ts_start, "endTime": hoy_ts_end}
+)
 print(f"Turnos status: {r_turnos.status_code} | Body: {r_turnos.text[:300]}")
 turnos_raw = r_turnos.json()
-r_fichajes = requests.get("https://api.connecteam.com/time-clock/v1/time-entries", headers=ct_headers, params=ct_params)
+
+# Fichajes del día
+r_fichajes = requests.get(
+    "https://api.connecteam.com/time-activity/v1/time-entries",
+    headers=ct_headers,
+    params={"startDate": hoy.isoformat(), "endDate": hoy.isoformat()}
+)
 print(f"Fichajes status: {r_fichajes.status_code} | Body: {r_fichajes.text[:300]}")
 fichajes_raw = r_fichajes.json()
 
