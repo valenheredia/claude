@@ -115,6 +115,19 @@ for ud in fichajes_raw.get("data", {}).get("timeActivitiesByUsers", []):
 
 print(f"Usuarios con fichajes: {list(fichajes_por_usuario.keys())}")
 
+# --- Debug planilla ---
+print("=== SERVICIOS EN PLANILLA ===")
+for row in ws.iter_rows(min_row=4):
+    servicio = row[2].value
+    operario = row[3].value
+    if servicio and operario:
+        print(f"  repr={repr(str(servicio).strip())} | col_e={repr(row[4].value)}")
+
+print("=== JOBS EN CONNECTEAM HOY ===")
+for t in turnos:
+    jname = job_nombre.get(t.get("jobId",""),"")
+    print(f"  repr={repr(jname.strip())}")
+
 # --- Cruzar y completar planilla ---
 ausencias, tardanzas = [], []
 cubiertos, total = 0, 0
