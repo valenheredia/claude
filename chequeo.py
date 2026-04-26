@@ -90,9 +90,18 @@ r_turnos = requests.get(
 print(f"Turnos status: {r_turnos.status_code} | Body: {r_turnos.text[:300]}")
 turnos_raw = r_turnos.json()
 
-# Fichajes del día
+# Fichajes del día - primero obtener el time clock ID
+r_timeclocks = requests.get("https://api.connecteam.com/time-clock/v1/time-clocks", headers=ct_headers)
+print(f"TimeClock status: {r_timeclocks.status_code} | Body: {r_timeclocks.text[:500]}")
+timeclocks_data = r_timeclocks.json().get("data", {})
+timeclocks = timeclocks_data.get("timeClocks", []) if isinstance(timeclocks_data, dict) else timeclocks_data
+if not timeclocks:
+    raise ValueError("No se encontraron time clocks en Connecteam")
+timeclock_id = timeclocks[0]["id"]
+print(f"Usando time clock ID: {timeclock_id}")
+
 r_fichajes = requests.get(
-    "https://api.connecteam.com/time-activity/v1/time-entries",
+    f"https://api.connecteam.com/time-clock/v1/time-clocks/{timeclock_id}/time-activities",
     headers=ct_headers,
     params={"startDate": hoy.isoformat(), "endDate": hoy.isoformat()}
 )
