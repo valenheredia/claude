@@ -67,28 +67,31 @@ ws = wb.active
 # --- Connecteam ---
 ct = {"X-API-KEY": CONNECTEAM_API_KEY, "Content-Type": "application/json"}
 
-# Jobs: jobId → title (con paginación)
+# Jobs con paginación
 job_nombre = {}
 offset = 0
-limit  = 50
 while True:
     r_jobs = requests.get("https://api.connecteam.com/jobs/v1/jobs", headers=ct,
-                          params={"limit": limit, "offset": offset})
-    jobs_raw  = r_jobs.json().get("data", {})
-    jobs_list = jobs_raw.get("jobs", []) if isinstance(jobs_raw, dict) else []
+                          params={"limit": 50, "offset": offset})
+    jobs_list = r_jobs.json().get("data", {}).get("jobs", [])
     for j in jobs_list:
         if "jobId" in j and "title" in j:
             job_nombre[j["jobId"]] = j["title"]
-    if len(jobs_list) < limit:
+    if len(jobs_list) < 50:
         break
-    offset += limit
+    offset += 50
 print(f"Jobs cargados: {len(job_nombre)}")
 
-# Schedulers
-scheduler_id = requests.get("https://api.connecteam.com/scheduler/v1/schedulers", headers=ct).json().get("data",{}).get("schedulers",[{}])[0].get("schedulerId")
-print(f"Scheduler ID: {scheduler_id}")
+# Usuarios
+user_nombre = {}
+r_users = requests.get("https://api.connecteam.com/users/v1/users", headers=ct)
+for u in r_users.json().get("data", {}).get("users", []):
+    if "userId" in u:
+        user_nombre[u["userId"]] = f"{u.get('firstName','')} {u.get('lastName','')}".strip()
+print(f"Usuarios cargados: {len(user_nombre)}")
 
-# Turnos del día
+# Scheduler y turnos del día
+scheduler_id = requests.get("https://api.connecteam.com/scheduler/v1/schedulers", headers=ct).json().get("data",{}).get("schedulers",[{}])[0].get("schedulerId")
 hoy_ts_start = int(datetime.combine(hoy, datetime.min.time()).timestamp())
 hoy_ts_end   = int(datetime.combine(hoy, datetime.max.time()).timestamp())
 turnos = requests.get(
@@ -96,81 +99,60 @@ turnos = requests.get(
     headers=ct, params={"startTime": hoy_ts_start, "endTime": hoy_ts_end}
 ).json().get("data", {}).get("shifts", [])
 print(f"Turnos encontrados: {len(turnos)}")
-for t in turnos:
-    print(f"  jobId={t.get('jobId')} → job_nombre={job_nombre.get(t.get('jobId',''))} | users={t.get('assignedUserIds')}")
 
-# Time clock y fichajes
+# Fichajes
 timeclock_id = requests.get("https://api.connecteam.com/time-clock/v1/time-clocks", headers=ct).json().get("data",{}).get("timeClocks",[{}])[0].get("id")
-fichajes_raw = requests.get(
+fichajes_por_usuario = {}
+for ud in requests.get(
     f"https://api.connecteam.com/time-clock/v1/time-clocks/{timeclock_id}/time-activities",
     headers=ct, params={"startDate": hoy.isoformat(), "endDate": hoy.isoformat()}
-).json()
-
-# Indexar fichajes por userId → lista de shifts fichados (con jobId)
-fichajes_por_usuario = {}
-for ud in fichajes_raw.get("data", {}).get("timeActivitiesByUsers", []):
+).json().get("data", {}).get("timeActivitiesByUsers", []):
     uid = ud.get("userId")
     if ud.get("shifts"):
         fichajes_por_usuario[uid] = ud["shifts"]
-
 print(f"Usuarios con fichajes: {list(fichajes_por_usuario.keys())}")
 
-# --- Debug planilla ---
-print("=== SERVICIOS EN PLANILLA ===")
-for row in ws.iter_rows(min_row=4):
-    servicio = row[2].value
-    operario = row[3].value
-    if servicio and operario:
-        print(f"  repr={repr(str(servicio).strip())} | col_e={repr(row[4].value)}")
+# Debug
+print("=== SERVICIOS EN PLANILLA (Col C, fila 5+) ===")
+for row in ws.iter_rows(min_row=5):
+    if row[2].value:
+        print(f"  {repr(str(row[2].value).strip())}")
 
-print("=== JOBS EN CONNECTEAM HOY ===")
-for t in turnos:
-    jname = job_nombre.get(t.get("jobId",""),"")
-    print(f"  repr={repr(jname.strip())}")
-
-# --- Cruzar y completar planilla ---
+# --- Cruzar y completar ---
 ausencias, tardanzas = [], []
 cubiertos, total = 0, 0
 
-for row in ws.iter_rows(min_row=4):
+for row in ws.iter_rows(min_row=5):
     servicio = row[2].value  # Col C
-    operario = row[3].value  # Col D
-    if not servicio or not operario:
+    if not servicio:
         continue
-    if str(operario).strip().lower() in IGNORAR:
-        continue
-    if row[4].value:  # ya completado
+    if row[4].value:  # Col E ya completada
         continue
 
-    total += 1
-    servicio_lower = str(servicio).strip().lower()
+    servicio_str   = str(servicio).strip()
+    servicio_lower = servicio_str.lower()
 
-    # Buscar turno cuyo job title matchee con el servicio de la planilla
     turno = next((t for t in turnos
                   if job_nombre.get(t.get("jobId",""),"").strip().lower() == servicio_lower), None)
 
     if not turno:
-        row[4].value = "—"
-        row[5].value = "—"
-        continue
+        continue  # Sin turno hoy para este servicio
 
-    uid        = turno.get("assignedUserIds", [None])[0]
-    turno_jid  = turno.get("jobId","")
+    uid         = turno.get("assignedUserIds", [None])[0]
+    operario    = user_nombre.get(uid, f"ID:{uid}")
+    turno_jid   = turno.get("jobId","")
     turno_start = turno.get("startTime", 0)
 
-    # Buscar fichaje del mismo usuario y mismo jobId
-    fichaje = next(
-        (f for f in fichajes_por_usuario.get(uid, [])
-         if f.get("jobId") == turno_jid),
-        None
-    )
-    # Fallback: buscar por proximidad de tiempo si no hay jobId match
+    if str(operario).strip().lower() in IGNORAR:
+        continue
+
+    row[3].value = operario  # Col D
+    total += 1
+
+    fichaje = next((f for f in fichajes_por_usuario.get(uid, []) if f.get("jobId") == turno_jid), None)
     if not fichaje:
-        fichaje = next(
-            (f for f in fichajes_por_usuario.get(uid, [])
-             if abs(f.get("start", {}).get("timestamp", 0) - turno_start) < 7200),
-            None
-        )
+        fichaje = next((f for f in fichajes_por_usuario.get(uid, [])
+                        if abs(f.get("start", {}).get("timestamp", 0) - turno_start) < 7200), None)
 
     if not fichaje:
         row[4].value = "-"
@@ -179,26 +161,26 @@ for row in ws.iter_rows(min_row=4):
         prioridad = "P1" if any(p in servicio_lower for p in P1) else \
                     "P2" if any(p in servicio_lower for p in P2) else "P3"
         row[8].value = prioridad
-        ausencias.append({"nombre": operario, "servicio": servicio,
+        ausencias.append({"nombre": operario, "servicio": servicio_str,
                           "horario": datetime.fromtimestamp(turno_start, BA_TZ).strftime("%H:%M"),
                           "prioridad": prioridad})
     else:
-        clock_ts = fichaje.get("start", {}).get("timestamp", 0)
-        diff     = (clock_ts - turno_start) / 60
+        clock_ts  = fichaje.get("start", {}).get("timestamp", 0)
+        diff      = (clock_ts - turno_start) / 60
         hora_real = datetime.fromtimestamp(clock_ts, BA_TZ).strftime("%H:%M")
         hora_prog = datetime.fromtimestamp(turno_start, BA_TZ).strftime("%H:%M")
         if diff > 10:
             row[4].value = "X"
             row[5].value = "TARDE"
             row[6].value = hora_real
-            tardanzas.append({"nombre": operario, "servicio": servicio,
+            tardanzas.append({"nombre": operario, "servicio": servicio_str,
                               "hora_prog": hora_prog, "hora_real": hora_real})
         else:
             row[4].value = "X"
             row[5].value = "OK"
             cubiertos += 1
 
-# --- Subir planilla actualizada ---
+# --- Subir planilla ---
 buf2 = io.BytesIO()
 wb.save(buf2)
 buf2.seek(0)
