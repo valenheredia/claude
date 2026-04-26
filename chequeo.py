@@ -127,13 +127,6 @@ for t in turnos:
     jname = job_nombre.get(t.get("jobId",""),"").strip()
     print(f"  {repr(jname)} | bytes={jname.encode('utf-8').hex()}")
 
-# Recargar hoja para resetear el iterador
-buf.seek(0)
-wb2 = openpyxl.load_workbook(buf)
-print(f"Hojas disponibles: {wb2.sheetnames}")
-ws  = wb2["📋 Checklist diario"] if "📋 Checklist diario" in wb2.sheetnames else wb2.active
-print(f"Hoja activa: {ws.title}")
-
 # --- Cruzar y completar ---
 ausencias, tardanzas, cubiertos_list = [], [], []
 cubiertos, total = 0, 0
@@ -206,7 +199,7 @@ for row in ws.iter_rows(min_row=5):
 
 # --- Subir planilla ---
 buf2 = io.BytesIO()
-wb2.save(buf2)
+wb.save(buf2)
 buf2.seek(0)
 drive.files().update(fileId=archivo_id,
                      media_body=MediaIoBaseUpload(buf2, mimetype=MIME_XLSX),
