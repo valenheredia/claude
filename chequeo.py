@@ -62,7 +62,9 @@ while not done:
     _, done = dl.next_chunk()
 buf.seek(0)
 wb = openpyxl.load_workbook(buf)
-ws = wb.active
+ws_nombres = wb.sheetnames
+print(f"Hojas en primera carga: {ws_nombres}")
+ws = wb["📋 Checklist diario"] if "📋 Checklist diario" in ws_nombres else wb.active
 
 # --- Connecteam ---
 ct = {"X-API-KEY": CONNECTEAM_API_KEY, "Content-Type": "application/json"}
@@ -129,7 +131,7 @@ for t in turnos:
 buf.seek(0)
 wb2 = openpyxl.load_workbook(buf)
 print(f"Hojas disponibles: {wb2.sheetnames}")
-ws  = wb2["Checklist diario"] if "Checklist diario" in wb2.sheetnames else wb2.active
+ws  = wb2["📋 Checklist diario"] if "📋 Checklist diario" in wb2.sheetnames else wb2.active
 print(f"Hoja activa: {ws.title}")
 
 # --- Cruzar y completar ---
