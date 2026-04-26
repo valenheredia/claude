@@ -79,7 +79,15 @@ if not schedulers:
 scheduler_id = schedulers[0]["schedulerId"]
 print(f"Usando scheduler ID: {scheduler_id}")
 
-# Turnos del día (timestamps Unix)
+# Obtener lista de jobs para mapear jobId → nombre
+r_jobs = requests.get("https://api.connecteam.com/jobs/v1/jobs", headers=ct_headers)
+print(f"Jobs status: {r_jobs.status_code} | Body: {r_jobs.text[:500]}")
+jobs_data = r_jobs.json().get("data", {})
+jobs_list = jobs_data.get("jobs", []) if isinstance(jobs_data, dict) else []
+job_nombre = {j["id"]: j["name"] for j in jobs_list if "id" in j and "name" in j}
+print(f"Jobs cargados: {len(job_nombre)}")
+
+
 hoy_ts_start = int(datetime.combine(hoy, datetime.min.time()).timestamp())
 hoy_ts_end   = int(datetime.combine(hoy, datetime.max.time()).timestamp())
 r_turnos = requests.get(
@@ -118,6 +126,15 @@ for user_data in fichajes_raw.get("data", {}).get("timeActivitiesByUsers", []):
     if shifts:
         fichajes_por_usuario[uid] = shifts  # lista de fichajes del día para ese usuario
 
+# --- Debug: ver datos de Connecteam ---
+print("=== TURNOS DE HOY ===")
+for t in turnos:
+    print(f"  title={t.get('title')} | jobId={t.get('jobId')} | assignedUserIds={t.get('assignedUserIds')}")
+print("=== FICHAJES POR USUARIO ===")
+for uid, flist in fichajes_por_usuario.items():
+    for f in flist:
+        print(f"  userId={uid} | jobId={f.get('jobId')} | start={f.get('start')}")
+
 # --- Cruzar y completar ---
 ausencias, tardanzas = [], []
 cubiertos, total = 0, 0
@@ -133,9 +150,9 @@ for row in ws.iter_rows(min_row=4):
         continue
 
     total += 1
-    # Buscar turno que matchee el servicio de la planilla
-    turno = next((t for t in turnos if t.get("title","").lower() in str(servicio).lower()
-                  or str(servicio).lower() in t.get("title","").lower()), None)
+    # Buscar turno cuyo job name matchee con el servicio de la planilla
+    turno = next((t for t in turnos
+                  if job_nombre.get(t.get("jobId","")).lower() == str(servicio).strip().lower()), None)
 
     if not turno:
         row[4].value = "—"
@@ -190,7 +207,9 @@ drive.files().update(fileId=archivo_id, media_body=media2, supportsAllDrives=Tru
 print("Planilla actualizada en Drive")
 
 # --- Mail ---
-hora_actual  = datetime.now().strftime("%H:%M")
+import pytz
+BA_TZ        = pytz.timezone("America/Buenos_Aires")
+hora_actual  = datetime.now(BA_TZ).strftime("%H:%M")
 fecha_actual = hoy.strftime("%d/%m/%Y")
 
 lineas_aus = "\n".join(
