@@ -134,6 +134,15 @@ for row in ws.iter_rows(min_row=5):
 
     turno = next((t for t in turnos
                   if job_nombre.get(t.get("jobId",""),"").strip().lower() == servicio_lower), None)
+    
+    if turno:
+        print(f"MATCH: '{servicio_str}' → jobId={turno.get('jobId')}")
+    else:
+        # Debug: mostrar comparaciones para los primeros servicios
+        for t in turnos:
+            jname = job_nombre.get(t.get("jobId",""),"").strip().lower()
+            if jname and servicio_lower[:5] in jname:
+                print(f"NEAR MISS: planilla='{servicio_lower}' vs connecteam='{jname}'")
 
     if not turno:
         continue  # Sin turno hoy para este servicio
