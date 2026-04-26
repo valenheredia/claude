@@ -108,12 +108,15 @@ r_fichajes = requests.get(
 print(f"Fichajes status: {r_fichajes.status_code} | Body: {r_fichajes.text[:300]}")
 fichajes_raw = r_fichajes.json()
 
-turnos   = turnos_raw   if isinstance(turnos_raw,   list) else turnos_raw.get("data",   [])
-fichajes = fichajes_raw if isinstance(fichajes_raw, list) else fichajes_raw.get("data", [])
+turnos   = turnos_raw.get("data", {}).get("shifts", [])
 
-fichajes_idx = {}
-for f in fichajes:
-    fichajes_idx[(f.get("userId"), f.get("jobId"))] = f
+# Los fichajes vienen agrupados por usuario
+fichajes_por_usuario = {}
+for user_data in fichajes_raw.get("data", {}).get("timeActivitiesByUsers", []):
+    uid = user_data.get("userId")
+    shifts = user_data.get("shifts", [])
+    if shifts:
+        fichajes_por_usuario[uid] = shifts  # lista de fichajes del día para ese usuario
 
 # --- Cruzar y completar ---
 ausencias, tardanzas = [], []
@@ -130,14 +133,22 @@ for row in ws.iter_rows(min_row=4):
         continue
 
     total += 1
-    turno = next((t for t in turnos if t.get("jobId","").lower() in str(servicio).lower()), None)
+    # Buscar turno que matchee el servicio de la planilla
+    turno = next((t for t in turnos if t.get("title","").lower() in str(servicio).lower()
+                  or str(servicio).lower() in t.get("title","").lower()), None)
 
     if not turno:
         row[4].value = "—"
         row[5].value = "—"
         continue
 
-    fichaje = fichajes_idx.get((turno.get("userId"), turno.get("jobId")))
+    uid = turno.get("assignedUserIds", [None])[0]
+    fichajes_usuario = fichajes_por_usuario.get(uid, [])
+
+    # Buscar fichaje que corresponda al turno (por jobId o por tiempo)
+    turno_start = turno.get("startTime", 0)
+    fichaje = next((f for f in fichajes_usuario
+                    if abs(f.get("start", {}).get("timestamp", 0) - turno_start) < 3600), None)
 
     if not fichaje:
         row[4].value = "-"
@@ -149,16 +160,18 @@ for row in ws.iter_rows(min_row=4):
         ausencias.append({"nombre": operario, "servicio": servicio,
                           "horario": turno.get("scheduledStart","")[11:16], "prioridad": prioridad})
     else:
-        clock_in = fichaje.get("clockIn","")
-        sched    = turno.get("scheduledStart","")
-        if clock_in and sched:
-            diff = (datetime.fromisoformat(clock_in[:19]) - datetime.fromisoformat(sched[:19])).total_seconds() / 60
+        clock_in_ts = fichaje.get("start", {}).get("timestamp", 0)
+        sched_ts    = turno.get("startTime", 0)
+        if clock_in_ts and sched_ts:
+            diff = (clock_in_ts - sched_ts) / 60
+            hora_real = datetime.fromtimestamp(clock_in_ts).strftime("%H:%M")
+            hora_prog = datetime.fromtimestamp(sched_ts).strftime("%H:%M")
             if diff > 10:
                 row[4].value = "X"
                 row[5].value = "TARDE"
-                row[6].value = clock_in[11:16]
+                row[6].value = hora_real
                 tardanzas.append({"nombre": operario, "servicio": servicio,
-                                  "hora_prog": sched[11:16], "hora_real": clock_in[11:16]})
+                                  "hora_prog": hora_prog, "hora_real": hora_real})
             else:
                 row[4].value = "X"
                 row[5].value = "OK"
