@@ -52,7 +52,7 @@ files2 = drive.files().list(q=q2, fields="files(id)", **DRIVE_OPTS).execute().ge
 if not files2:
     raise FileNotFoundError(f"No existe el archivo '{nombre_archivo}'")
 archivo_id = files2[0]["id"]
-print(f"Archivo encontrado: {nombre_archivo}")
+print(f"Archivo encontrado: {nombre_archivo} | ID: {archivo_id}")
 
 # --- Descargar archivo ---
 buf = io.BytesIO()
@@ -119,7 +119,7 @@ for row in ws.iter_rows(min_row=5):
         print(f"  {repr(str(row[2].value).strip())}")
 
 # --- Cruzar y completar ---
-ausencias, tardanzas = [], []
+ausencias, tardanzas, cubiertos_list = [], [], []
 cubiertos, total = 0, 0
 
 for row in ws.iter_rows(min_row=5):
@@ -179,6 +179,7 @@ for row in ws.iter_rows(min_row=5):
             row[4].value = "X"
             row[5].value = "OK"
             cubiertos += 1
+            cubiertos_list.append({"nombre": operario, "servicio": servicio_str, "hora": hora_prog})
 
 # --- Subir planilla ---
 buf2 = io.BytesIO()
@@ -199,12 +200,18 @@ lineas_aus = "\n".join(
 lineas_tar = "\n".join(
     f"- {t['nombre']} | {t['servicio']} | {t['hora_prog']} → {t['hora_real']}"
     for t in tardanzas) or "Ninguna"
+lineas_cub = "\n".join(
+    f"- {c['nombre']} | {c['servicio']} | {c['hora']}"
+    for c in cubiertos_list) or "Ninguno"
 
-cuerpo = f"""AUSENCIAS:
-{lineas_aus}
+cuerpo = f"""CUBIERTOS ({cubiertos}/{total}):
+{lineas_cub}
 
 TARDANZAS:
 {lineas_tar}
+
+AUSENCIAS:
+{lineas_aus}
 
 RESUMEN:
 Cubiertos: {cubiertos} / Total: {total}
