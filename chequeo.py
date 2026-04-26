@@ -128,7 +128,9 @@ for t in turnos:
 # Recargar hoja para resetear el iterador
 buf.seek(0)
 wb2 = openpyxl.load_workbook(buf)
-ws  = wb2.active
+print(f"Hojas disponibles: {wb2.sheetnames}")
+ws  = wb2["Checklist diario"] if "Checklist diario" in wb2.sheetnames else wb2.active
+print(f"Hoja activa: {ws.title}")
 
 # --- Cruzar y completar ---
 ausencias, tardanzas, cubiertos_list = [], [], []
