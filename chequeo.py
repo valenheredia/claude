@@ -69,8 +69,12 @@ ws = wb.active
 # --- Connecteam ---
 ct_headers = {"Authorization": f"Bearer {CONNECTEAM_API_KEY}", "Content-Type": "application/json"}
 ct_params  = {"startDate": hoy.isoformat(), "endDate": hoy.isoformat()}
-turnos_raw   = requests.get("https://api.connecteam.com/shifts/v1/shifts",           headers=ct_headers, params=ct_params).json()
-fichajes_raw = requests.get("https://api.connecteam.com/time-clock/v1/time-entries", headers=ct_headers, params=ct_params).json()
+r_turnos = requests.get("https://api.connecteam.com/shifts/v1/shifts", headers=ct_headers, params=ct_params)
+print(f"Turnos status: {r_turnos.status_code} | Body: {r_turnos.text[:300]}")
+turnos_raw = r_turnos.json()
+r_fichajes = requests.get("https://api.connecteam.com/time-clock/v1/time-entries", headers=ct_headers, params=ct_params)
+print(f"Fichajes status: {r_fichajes.status_code} | Body: {r_fichajes.text[:300]}")
+fichajes_raw = r_fichajes.json()
 
 turnos   = turnos_raw   if isinstance(turnos_raw,   list) else turnos_raw.get("data",   [])
 fichajes = fichajes_raw if isinstance(fichajes_raw, list) else fichajes_raw.get("data", [])
