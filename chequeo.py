@@ -116,7 +116,14 @@ print(f"Usuarios con fichajes: {list(fichajes_por_usuario.keys())}")
 print("=== SERVICIOS EN PLANILLA (Col C, fila 5+) ===")
 for row in ws.iter_rows(min_row=5):
     if row[2].value:
-        print(f"  {repr(str(row[2].value).strip())}")
+        s = str(row[2].value).strip()
+        if any(x in s.lower() for x in ["correa","triunvirato 5375","moreno","cabildo 2588"]):
+            print(f"  {repr(s)} | bytes={s.encode('utf-8').hex()}")
+
+print("=== JOBS CONNECTEAM HOY ===")
+for t in turnos:
+    jname = job_nombre.get(t.get("jobId",""),"").strip()
+    print(f"  {repr(jname)} | bytes={jname.encode('utf-8').hex()}")
 
 # --- Cruzar y completar ---
 ausencias, tardanzas, cubiertos_list = [], [], []
