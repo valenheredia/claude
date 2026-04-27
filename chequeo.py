@@ -194,7 +194,7 @@ for row in ws.iter_rows(min_row=5):
     fichaje = next((f for f in fichajes_por_usuario.get(uid, []) if f.get("jobId") == turno_jid), None)
     if not fichaje:
         fichaje = next((f for f in fichajes_por_usuario.get(uid, [])
-                        if abs(f.get("start", {}).get("timestamp", 0) - turno_start) < 7200), None)
+                        if -14400 < f.get("start", {}).get("timestamp", 0) - turno_start <= 600), None)
 
     if not fichaje:
         row[4].value = "-"
@@ -211,13 +211,13 @@ for row in ws.iter_rows(min_row=5):
         diff      = (clock_ts - turno_start) / 60
         hora_real = datetime.fromtimestamp(clock_ts, BA_TZ).strftime("%H:%M")
         hora_prog = datetime.fromtimestamp(turno_start, BA_TZ).strftime("%H:%M")
-        if diff > 10:
+        if diff > 10:  # tardanza
             row[4].value = "X"
             row[5].value = "TARDE"
             row[6].value = hora_real
             tardanzas.append({"nombre": operario, "servicio": servicio_str,
                               "hora_prog": hora_prog, "hora_real": hora_real})
-        else:
+        else:  # cubierto (a tiempo o anticipado)
             row[4].value = "X"
             row[5].value = "OK"
             cubiertos += 1
