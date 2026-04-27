@@ -2,6 +2,8 @@ import os, requests, smtplib, io, unicodedata
 
 def normalizar(s):
     s = str(s).strip().lower().replace("—","-").replace("–","-")
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(c for c in s if unicodedata.category(c) != "Mn")
     return unicodedata.normalize("NFC", s)
 from datetime import date, datetime, timezone, timedelta
 from email.mime.text import MIMEText
@@ -103,10 +105,20 @@ print(f"Usuarios cargados: {len(user_nombre)}")
 scheduler_id = requests.get("https://api.connecteam.com/scheduler/v1/schedulers", headers=ct).json().get("data",{}).get("schedulers",[{}])[0].get("schedulerId")
 hoy_ts_start = int(datetime.combine(hoy, datetime.min.time()).timestamp())
 hoy_ts_end   = int(datetime.combine(hoy, datetime.max.time()).timestamp())
-turnos = requests.get(
-    f"https://api.connecteam.com/scheduler/v1/schedulers/{scheduler_id}/shifts",
-    headers=ct, params={"startTime": hoy_ts_start, "endTime": hoy_ts_end}
-).json().get("data", {}).get("shifts", [])
+
+# Turnos con paginación
+turnos = []
+page = 1
+while True:
+    r_turnos = requests.get(
+        f"https://api.connecteam.com/scheduler/v1/schedulers/{scheduler_id}/shifts",
+        headers=ct, params={"startTime": hoy_ts_start, "endTime": hoy_ts_end, "page": page, "limit": 50}
+    ).json()
+    batch = r_turnos.get("data", {}).get("shifts", [])
+    turnos.extend(batch)
+    if len(batch) < 50:
+        break
+    page += 1
 print(f"Turnos encontrados: {len(turnos)}")
 
 # Fichajes
