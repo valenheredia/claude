@@ -116,11 +116,11 @@ print(f"Usuarios con fichajes: {list(fichajes_por_usuario.keys())}")
 
 # Debug
 print("=== SERVICIOS EN PLANILLA (Col C, fila 5+) ===")
-for row in ws.iter_rows(min_row=5):
+for i, row in enumerate(ws.iter_rows(min_row=5), start=5):
     if row[2].value:
         s = str(row[2].value).strip()
         if any(x in s.lower() for x in ["correa","triunvirato 5375","moreno","cabildo 2588"]):
-            print(f"  {repr(s)} | bytes={s.encode('utf-8').hex()}")
+            print(f"  Fila {i}: " + " | ".join(f"col{j}={repr(row[j].value)}" for j in range(6)))
 
 print("=== JOBS CONNECTEAM HOY ===")
 for t in turnos:
