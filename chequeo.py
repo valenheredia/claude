@@ -108,17 +108,17 @@ hoy_ts_end   = int(datetime.combine(hoy, datetime.max.time()).timestamp())
 
 # Turnos con paginación
 turnos = []
-page = 1
+offset_t = 0
 while True:
     r_turnos = requests.get(
         f"https://api.connecteam.com/scheduler/v1/schedulers/{scheduler_id}/shifts",
-        headers=ct, params={"startTime": hoy_ts_start, "endTime": hoy_ts_end, "page": page, "limit": 50}
+        headers=ct, params={"startTime": hoy_ts_start, "endTime": hoy_ts_end, "offset": offset_t, "limit": 50}
     ).json()
     batch = r_turnos.get("data", {}).get("shifts", [])
     turnos.extend(batch)
     if len(batch) < 50:
         break
-    page += 1
+    offset_t += 50
 print(f"Turnos encontrados: {len(turnos)}")
 
 # Fichajes
@@ -191,7 +191,7 @@ for row in ws.iter_rows(min_row=5):
 
     if not fichaje:
         # Si el turno todavía no empezó, dejarlo pendiente sin marcar ausencia
-        if turno_start > ahora_ts + 600:
+        if turno_start > ahora_ts + 1800:  # 30 min de gracia antes del turno
             row[4].value = "—"
             row[5].value = "—"
             continue
