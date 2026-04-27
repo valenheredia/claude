@@ -183,13 +183,6 @@ for row in ws.iter_rows(min_row=5):
         continue
 
     row[3].value = operario  # Col D
-    total += 1
-
-    # Si el turno todavía no empezó, dejarlo como pendiente
-    if turno_start > ahora_ts + 600:  # 10 min de gracia
-        row[4].value = "—"
-        row[5].value = "—"
-        continue
 
     fichaje = next((f for f in fichajes_por_usuario.get(uid, []) if f.get("jobId") == turno_jid), None)
     if not fichaje:
@@ -197,6 +190,12 @@ for row in ws.iter_rows(min_row=5):
                         if -14400 < f.get("start", {}).get("timestamp", 0) - turno_start <= 600), None)
 
     if not fichaje:
+        # Si el turno todavía no empezó, dejarlo pendiente sin marcar ausencia
+        if turno_start > ahora_ts + 600:
+            row[4].value = "—"
+            row[5].value = "—"
+            continue
+        total += 1
         row[4].value = "-"
         row[5].value = "NO"
         row[6].value = "No fichó"
@@ -207,6 +206,7 @@ for row in ws.iter_rows(min_row=5):
                           "horario": datetime.fromtimestamp(turno_start, BA_TZ).strftime("%H:%M"),
                           "prioridad": prioridad})
     else:
+        total += 1
         clock_ts  = fichaje.get("start", {}).get("timestamp", 0)
         diff      = (clock_ts - turno_start) / 60
         hora_real = datetime.fromtimestamp(clock_ts, BA_TZ).strftime("%H:%M")
@@ -221,7 +221,7 @@ for row in ws.iter_rows(min_row=5):
             row[4].value = "X"
             row[5].value = "OK"
             cubiertos += 1
-            cubiertos_list.append({"nombre": operario, "servicio": servicio_str, "hora": hora_prog})
+            cubiertos_list.append({"nombre": operario, "servicio": servicio_str, "hora": hora_real})
 
 # --- Subir planilla ---
 buf2 = io.BytesIO()
