@@ -1,4 +1,8 @@
-import os, requests, smtplib, io
+import os, requests, smtplib, io, unicodedata
+
+def normalizar(s):
+    s = str(s).strip().lower().replace("—","-").replace("–","-")
+    return unicodedata.normalize("NFC", s)
 from datetime import date, datetime, timezone, timedelta
 from email.mime.text import MIMEText
 from googleapiclient.discovery import build
@@ -84,10 +88,13 @@ while True:
     offset += 50
 print(f"Jobs cargados: {len(job_nombre)}")
 
-# Usuarios
+# Usuarios - cargar todos con limit alto
 user_nombre = {}
-r_users = requests.get("https://api.connecteam.com/users/v1/users", headers=ct)
-for u in r_users.json().get("data", {}).get("users", []):
+r_users = requests.get("https://api.connecteam.com/users/v1/users", headers=ct,
+                       params={"limit": 100})
+users_data = r_users.json().get("data", {})
+users_list = users_data.get("users", []) if isinstance(users_data, dict) else []
+for u in users_list:
     if "userId" in u:
         user_nombre[u["userId"]] = f"{u.get('firstName','')} {u.get('lastName','')}".strip()
 print(f"Usuarios cargados: {len(user_nombre)}")
@@ -135,28 +142,21 @@ for row in ws.iter_rows(min_row=5):
     servicio = row[2].value  # Col C
     if not servicio:
         continue
-    col_e_val = str(row[4].value).strip() if row[4].value is not None else ""
-    if col_e_val and col_e_val not in ["None", ""]:  # Col E ya completada
-        continue
 
     servicio_str   = str(servicio).strip()
     servicio_lower = servicio_str.lower()
 
-    turno = next((t for t in turnos
-                  if job_nombre.get(t.get("jobId",""),"").strip().lower() == servicio_lower), None)
+    servicio_norm = normalizar(servicio_str)
 
-    # Test explícito para los 4 servicios de hoy
-    if servicio_lower in ["correa","triunvirato 5375","core av. cabildo 2588","core jose maria moreno 357"]:
-        for t in turnos:
-            jn = job_nombre.get(t.get("jobId",""),"").strip().lower()
-            print(f"TEST: '{servicio_lower}' == '{jn}' → {servicio_lower == jn} | len_p={len(servicio_lower)} len_c={len(jn)}")
+    turno = next((t for t in turnos
+                  if normalizar(job_nombre.get(t.get("jobId",""),"")) == servicio_norm), None)
 
     print(f"Fila servicio='{servicio_str}' | turno={'SI' if turno else 'NO'} | col_e={repr(row[4].value)}")
     if not turno:
         for t in turnos:
-            jname = job_nombre.get(t.get("jobId",""),"").strip().lower()
-            if jname and servicio_lower[:5] in jname:
-                print(f"NEAR MISS: planilla='{servicio_lower}' vs connecteam='{jname}'")
+            jname = normalizar(job_nombre.get(t.get("jobId",""),""))
+            if jname and servicio_norm[:5] in jname:
+                print(f"NEAR MISS: planilla='{servicio_norm}' vs connecteam='{jname}'")
 
     if not turno:
         continue  # Sin turno hoy para este servicio
@@ -165,12 +165,19 @@ for row in ws.iter_rows(min_row=5):
     operario    = user_nombre.get(uid, f"ID:{uid}")
     turno_jid   = turno.get("jobId","")
     turno_start = turno.get("startTime", 0)
+    ahora_ts    = datetime.now(BA_TZ).timestamp()
 
     if str(operario).strip().lower() in IGNORAR:
         continue
 
     row[3].value = operario  # Col D
     total += 1
+
+    # Si el turno todavía no empezó, dejarlo como pendiente
+    if turno_start > ahora_ts + 600:  # 10 min de gracia
+        row[4].value = "—"
+        row[5].value = "—"
+        continue
 
     fichaje = next((f for f in fichajes_por_usuario.get(uid, []) if f.get("jobId") == turno_jid), None)
     if not fichaje:
